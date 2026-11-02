@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Thirstt",
   "version": "0.2.0",
-  "description": "Reading overlay for Thirstt.",
+  "description": "Reading overlay for Thirstt: open a page's extract in a panel without touching the page.",
   "icons": {
     "16": "icons/logo-16.png",
     "115": "icons/logo-115.png"
@@ -17,7 +17,8 @@
   "background": {
     "scripts": [
       "background.js"
-    ]
+    ],
+    "type": "module"
   },
   "browser_specific_settings": {
     "gecko": {
@@ -25,12 +26,34 @@
       "strict_min_version": "140.0",
       "data_collection_permissions": {
         "required": [
-          "none"
+          "authenticationInfo",
+          "browsingActivity",
+          "personallyIdentifyingInfo"
         ]
       }
     },
     "gecko_android": {
       "strict_min_version": "142.0"
     }
+  },
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://staging.thirstt.com/*"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "panel/panel.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none'"
   }
 }

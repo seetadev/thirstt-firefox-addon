@@ -4,11 +4,14 @@
   "version": "0.2.0",
   "description": "Thirstt Firefox add-on (Manifest V3)",
   "license": "MPL-2.0",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "lint": "web-ext lint -s extension",
     "build": "web-ext build -s extension -a web-ext-artifacts --overwrite-dest",
-    "start": "web-ext run -s extension"
+    "start": "web-ext run -s extension",
+    "build:test": "node tools/build.mjs"
   },
   "devDependencies": {
     "web-ext": "10.8.0"
