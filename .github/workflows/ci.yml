@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-unit:
+    name: web-ext lint + unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint -- --warnings-as-errors
+      - run: npm run test:unit
+
+  build:
+    name: web-ext build (artifact)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: The package contains only the extension (no tests, tooling or node_modules)
+        run: |
+          unzip -Z1 web-ext-artifacts/*.zip | tee contents.txt
+          ! grep -E '(^|/)(node_modules|tests|tools|package(-lock)?\.json|\.github)(/|$)' contents.txt
+          unzip -p web-ext-artifacts/*.zip manifest.json | node -e "const m=JSON.parse(require('fs').readFileSync(0,'utf8')); if(m.manifest_version!==3||m.name!=='Thirstt') process.exit(1)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: thirstt-extension
+          path: web-ext-artifacts/*.zip
+          if-no-files-found: error
+
+  e2e:
+    name: real Firefox (Selenium + geckodriver, temporary add-on install)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Browser versions
+        run: |
+          firefox --version
+          "$GECKOWEBDRIVER/geckodriver" --version | head -1
+      - name: End-to-end against the labelled local test double
+        run: GECKODRIVER="$GECKOWEBDRIVER/geckodriver" npm run test:e2e
+
+  audit:
+    name: npm audit (scoped to what ships)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: The shipped extension has no runtime dependencies
+        run: node -e "const p=require('./package.json'); if(p.dependencies&&Object.keys(p.dependencies).length) {console.error('runtime dependencies found'); process.exit(1)}"
+      - name: Production dependencies (what ships)
+        run: npm audit --omit=dev
+      - name: Dev tooling, fail on high/critical
+        run: npm audit --audit-level=high
+      - name: Dev tooling, full report (informational)
+        run: npm audit || true

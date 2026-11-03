@@ -1,0 +1,6 @@
+[
+  {
+    "title": "Fixture article: a short, harmless extract",
+    "content": "<p>This paragraph comes from the <strong>test double</strong>, not from Thirstt.</p><blockquote>A quoted line, to check that blockquotes survive sanitising.</blockquote><ul><li>first item</li><li>second item</li></ul><p>A <a href=\"https://example.com/\">safe link</a> stays; its target is forced to open in a new tab.</p>"
+  }
+]

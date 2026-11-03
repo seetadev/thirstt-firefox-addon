@@ -1,0 +1,36 @@
+/* Ported from the original overlay (data/inject.css), minus the page-injection hacks. */
+:root { color-scheme: light; }
+html, body { margin: 0; padding: 0; background: #fff; color: #222; font-family: Georgia, "Times New Roman", serif; }
+header { display: flex; justify-content: space-between; align-items: flex-start; padding: 20px 30px 0 40px; }
+#logo { height: 50px; width: 50px; }
+#close {
+  font: bold 1.6rem/1 system-ui, sans-serif; background: none; border: 0; cursor: pointer; opacity: 0.6; padding: 4px 8px;
+}
+#close:hover, #close:focus-visible { opacity: 1; }
+main { width: 70%; max-width: 900px; margin: 30px auto 100px; }
+@media (max-width: 700px) { main { width: 90%; } }
+
+#loading { font-size: 1.2rem; opacity: 0.7; }
+
+#article-title {
+  font-size: 2rem; font-weight: bold; border-bottom: 1px solid #d2d2d2; padding-bottom: 20px; margin: 0 0 30px;
+}
+#article-content { font-size: 1.3rem; line-height: 2; overflow-wrap: anywhere; }
+#article-content a { color: #018f76; }
+#article-content blockquote { font-style: italic; margin-left: 1.5rem; padding-left: 1rem; border-left: 4px solid #00bd9c; }
+#article-content pre { overflow-x: auto; background: #f4f4f4; padding: 12px; }
+#article-content ::selection { color: #00bd9c; background: #fff; }
+
+#login { font-family: system-ui, sans-serif; max-width: 420px; }
+#login label { display: block; margin: 12px 0; }
+#login input { display: block; width: 100%; box-sizing: border-box; padding: 8px; margin-top: 4px; font: inherit; }
+#login-button {
+  padding: 10px 24px; background: #00bd9c; color: #fff; border: 0; box-shadow: 2px 2px 2px #bdbdbd; font: inherit; cursor: pointer;
+}
+#login-button:hover, #login-button:focus-visible { background: #00a185; }
+#login-button:disabled { opacity: 0.6; cursor: progress; }
+#register { margin-top: 20px; }
+#register-link { color: #00bd9c; font-weight: bold; }
+#register-link:hover { color: #00a185; }
+#login-error, #error { color: #b00020; font-family: system-ui, sans-serif; }
+[hidden] { display: none !important; }

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+web-ext-artifacts/
+test-results/
+*.xpi
+*.zip
+.env
+.DS_Store
+.idea/
+.vscode/
+build/
