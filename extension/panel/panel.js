@@ -7,19 +7,6 @@ function show(name) { for (const v of views) $(v).hidden = v !== name; }
 
 function showError(message) { $('error').textContent = message; show('error'); }
 
-// The overlay host (content script) passes the page URL in the query string. Only http(s) is accepted,
-// and the #fragment is dropped before anything is sent to the backend.
-function pageUrl() {
-  try {
-    const url = new URL(new URLSearchParams(location.search).get('u') ?? '');
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
-    url.hash = '';
-    return url.href;
-  } catch {
-    return null;
-  }
-}
-
 function close() {
   // The overlay host removes the iframe; it only trusts messages that come from this exact window.
   parent.postMessage({ type: 'thirstt-close' }, '*');
@@ -28,10 +15,10 @@ function close() {
 // All network access goes through the background page (shared, unpartitioned cookie jar; see background.js).
 const ask = (message) => browser.runtime.sendMessage(message);
 
-async function load(url) {
+async function load() {
   show('loading');
   try {
-    const result = await ask({ type: 'thirstt:extract', url });
+    const result = await ask({ type: 'thirstt:extract' });   // the background learns the page URL itself
     if (result?.status === 'login-required') {
       show('login');
       $('email').focus();
@@ -49,7 +36,6 @@ async function load(url) {
   }
 }
 
-const url = pageUrl();
 $('register-link').href = `${API_BASE}/register`;
 $('close').addEventListener('click', close);
 document.addEventListener('keydown', (event) => { if (event.key === 'Escape') close(); });
@@ -67,7 +53,7 @@ $('login').addEventListener('submit', async (event) => {
       error.hidden = false;
     } else if (result?.ok) {
       $('password').value = '';
-      await load(url);
+      await load();
     } else {
       error.textContent = 'Wrong e-mail or password.';
       error.hidden = false;
@@ -81,4 +67,4 @@ $('login').addEventListener('submit', async (event) => {
   }
 });
 
-if (url) load(url); else showError('Thirstt can only open pages that start with http:// or https://.');
+load();

@@ -57,3 +57,26 @@ test('safeHref rejects garbage', () => {
   assert.equal(safeHref(''), null);
   assert.equal(safeHref('https://example.invalid/'), 'https://example.invalid/');
 });
+
+// ---- hardening ----------------------------------------------------------------------------------------
+
+test('a deeply nested document cannot overflow the stack; its text survives, the structure is flattened', () => {
+  const depth = 3000;
+  const html = '<div>'.repeat(depth) + 'deep text' + '</div>'.repeat(depth);
+  let out;
+  assert.doesNotThrow(() => { out = render(html); });
+  assert.match(out, /deep text/);
+  assert.doesNotMatch(out, /<div/);
+});
+
+test('a hostile nesting of allowed tags is flattened past the depth limit', () => {
+  const out = render('<b>'.repeat(500) + 'x' + '</b>'.repeat(500));
+  assert.match(out, /x/);
+  assert.ok((out.match(/<b>/g) ?? []).length <= 66);
+});
+
+test('a document with an enormous number of nodes is truncated instead of exhausting the DOM', () => {
+  const out = render('<b>x</b>'.repeat(120_000));
+  const count = (out.match(/<b>/g) ?? []).length;
+  assert.ok(count > 0 && count <= 50_000, `kept ${count}`);
+});

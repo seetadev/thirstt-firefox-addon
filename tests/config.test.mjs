@@ -69,3 +69,13 @@ test('panel.html has no inline script or inline handlers', () => {
   assert.doesNotMatch(html, /<script(?![^>]*\bsrc=)/i);
   assert.doesNotMatch(html, /\son[a-z]+\s*=/i);
 });
+
+test('the page URL never travels through a place a web page can control (query string / message field)', () => {
+  const panel = readFileSync('extension/panel/panel.js', 'utf8');
+  const overlay = readFileSync('extension/content/overlay.js', 'utf8');
+  const background = readFileSync('extension/background.js', 'utf8');
+  assert.doesNotMatch(panel, /location\.search|URLSearchParams/, 'the panel must not read a URL from its own query string (any web page can frame it)');
+  assert.doesNotMatch(overlay, /panelUrl\}\?/, 'the overlay must not put the page URL into the iframe URL');
+  assert.doesNotMatch(background, /message\??\.url/, 'the background must not use a URL supplied in a message');
+  assert.match(background, /trustedPageUrl\(sender\)/, 'the background must learn the page URL from the overlay content script');
+});

@@ -2,7 +2,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { By, until } from 'selenium-webdriver';
-import { startMock, buildTestAddon, startFirefox, clickToolbarButton, badgeText, overlayFrames, extensionUuid, addonInfo, ADDON_ID } from './helpers.mjs';
+import { startMock, buildTestAddon, startFirefox, clickToolbarButton, badgeText, overlayFrames, extensionUuid, addonInfo, inOverlay } from './helpers.mjs';
 
 const PORT = 8790;
 let mock, driver;
@@ -32,7 +32,7 @@ test('toolbar click opens an extension-origin overlay iframe, a second click clo
   await clickToolbarButton(driver);
   const frames = await overlayFrames(driver);
   assert.equal(frames.length, 1);
-  assert.match(frames[0], /^moz-extension:\/\/<uuid>\/panel\/panel\.html\?u=/);
+  assert.match(frames[0], /^moz-extension:\/\/<uuid>\/panel\/panel\.html$/);   // no page URL in the frame URL
   await clickToolbarButton(driver);
   assert.deepEqual(await overlayFrames(driver), []);
   await clickToolbarButton(driver);
@@ -63,39 +63,42 @@ test('on a non-http page the button reports it cannot run and no overlay appears
   assert.deepEqual(await overlayFrames(driver), []);
 });
 
-test('panel: login required -> wrong password message -> login -> sanitised article', async () => {
+test('overlay: login required -> wrong password message -> login -> sanitised article', async () => {
   await mock.reset();
-  const uuid = await extensionUuid(driver);
-  await driver.get(`moz-extension://${uuid}/panel/panel.html?u=${encodeURIComponent(PAGE() + '#x')}`);
-  await driver.wait(until.elementIsVisible(driver.findElement(By.id('login'))), 8000);
-  assert.equal(await driver.findElement(By.id('register-link')).getAttribute('href'), `${mock.base}/register`);
+  await driver.get(`${PAGE()}#x`);
+  await clickToolbarButton(driver);
+  await inOverlay(driver, async () => {
+    await driver.wait(until.elementIsVisible(driver.findElement(By.id('login'))), 8000);
+    assert.equal(await driver.findElement(By.id('register-link')).getAttribute('href'), `${mock.base}/register`);
 
-  await driver.findElement(By.id('email')).sendKeys('wrong@example.invalid');
-  await driver.findElement(By.id('password')).sendKeys('nope');
-  await driver.findElement(By.id('login-button')).click();
-  await driver.wait(until.elementIsVisible(driver.findElement(By.id('login-error'))), 8000);
-  assert.equal(await driver.findElement(By.id('login-error')).getText(), 'Wrong e-mail or password.');
+    await driver.findElement(By.id('email')).sendKeys('wrong@example.invalid');
+    await driver.findElement(By.id('password')).sendKeys('nope');
+    await driver.findElement(By.id('login-button')).click();
+    await driver.wait(until.elementIsVisible(driver.findElement(By.id('login-error'))), 8000);
+    assert.equal(await driver.findElement(By.id('login-error')).getText(), 'Wrong e-mail or password.');
 
-  await driver.findElement(By.id('email')).clear();
-  await driver.findElement(By.id('password')).clear();
-  await driver.findElement(By.id('email')).sendKeys(mock.FAKE_USER.email);
-  await driver.findElement(By.id('password')).sendKeys(mock.FAKE_USER.password);
-  await driver.findElement(By.id('login-button')).click();
-  await driver.wait(until.elementIsVisible(driver.findElement(By.id('article'))), 8000);
+    await driver.findElement(By.id('email')).clear();
+    await driver.findElement(By.id('password')).clear();
+    await driver.findElement(By.id('email')).sendKeys(mock.FAKE_USER.email);
+    await driver.findElement(By.id('password')).sendKeys(mock.FAKE_USER.password);
+    await driver.findElement(By.id('login-button')).click();
+    await driver.wait(until.elementIsVisible(driver.findElement(By.id('article'))), 8000);
 
-  assert.equal(await driver.findElement(By.id('article-title')).getText(), 'Fixture article: a short, harmless extract');
-  const html = await driver.findElement(By.id('article-content')).getAttribute('innerHTML');
-  assert.match(html, /<blockquote>/);
-  assert.match(html, /<li>first item<\/li>/);
-  assert.match(html, /<a href="https:\/\/example\.com\/" target="_blank" rel="noopener noreferrer nofollow">safe link<\/a>/);
+    assert.equal(await driver.findElement(By.id('article-title')).getText(), 'Fixture article: a short, harmless extract');
+    const html = await driver.findElement(By.id('article-content')).getAttribute('innerHTML');
+    assert.match(html, /<blockquote>/);
+    assert.match(html, /<li>first item<\/li>/);
+    assert.match(html, /<a href="https:\/\/example\.com\/" target="_blank" rel="noopener noreferrer nofollow">safe link<\/a>/);
+  });
   const state = await mock.state_();
   assert.deepEqual(state.loginAttempts.map((a) => a.ok), [false, true]);
   assert.equal(state.extractRequests.at(-1).loggedIn, true);
-  assert.equal(state.extractRequests.at(-1).url, PAGE());
+  assert.equal(state.extractRequests.at(-1).url, PAGE());     // the page URL, without "#x", learned from the real page
+  await clickToolbarButton(driver);   // close
 });
 
 test('a login carries over to the overlay on a web page (requests use the extension cookie jar, not a per-site partition)', async () => {
-  // Test 5 logged in through the panel page. Opening the overlay on an ordinary web page must now find the session.
+  // Test 5 logged in through the overlay. Opening the overlay on an ordinary web page must now find the session.
   await mock.reset();
   await driver.get(PAGE());
   await clickToolbarButton(driver);

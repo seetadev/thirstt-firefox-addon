@@ -37,14 +37,21 @@
       @media (prefers-reduced-motion: reduce) { iframe { transition: none; } }`;
     frame = document.createElement('iframe');
     frame.title = 'Thirstt';
-    const url = new URL(location.href);
-    url.hash = '';
-    frame.src = `${panelUrl}?u=${encodeURIComponent(url.href)}`;
+    frame.src = panelUrl;                // no page URL in the iframe URL: the background asks us for it (below)
     frame.addEventListener('load', () => { frame?.classList.add('on'); frame?.focus(); });
     shadow.append(style, frame);
     document.documentElement.append(host);
     window.addEventListener('message', onMessage, true);
   }
+
+  // The background asks THIS content script which page the overlay is on, so the URL comes from the real
+  // page (not from anything a web page could put in a query string). Only answers while the overlay is open.
+  browser.runtime.onMessage.addListener((message, sender) => {
+    if (sender.id !== browser.runtime.id || message?.type !== 'thirstt:page-url' || !host) return undefined;
+    const url = new URL(location.href);
+    url.hash = '';
+    return Promise.resolve({ url: url.href });
+  });
 
   globalThis.__thirsttOverlay = { toggle: () => (host ? close() : open()) };
   globalThis.__thirsttOverlay.toggle();

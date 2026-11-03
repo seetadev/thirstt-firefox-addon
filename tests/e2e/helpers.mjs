@@ -74,3 +74,9 @@ export const addonInfo = (driver) => chrome(driver, `
   const p = WebExtensionPolicy.getByID('${ADDON_ID}');
   done({ name: a.name, version: a.version, active: a.isActive, temporary: a.temporarilyInstalled, manifestVersion: p.manifestVersion,
          permissions: [...p.permissions].sort(), origins: p.allowedOrigins.patterns.map(x => x.pattern).filter(x => !x.startsWith('moz-extension:')) });`);
+
+/** Runs `fn` with the driver switched into the overlay iframe (the panel), then switches back. */
+export async function inOverlay(driver, fn) {
+  await driver.switchTo().frame(0);
+  try { return await fn(); } finally { await driver.switchTo().defaultContent(); }
+}

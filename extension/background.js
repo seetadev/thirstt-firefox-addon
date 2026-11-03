@@ -38,14 +38,39 @@ function httpUrlWithoutFragment(value) {
   return url.href;
 }
 
+const MAX_EMAIL = 320;
+const MAX_PASSWORD = 1024;
+
+// Only our own panel, framed by the overlay we injected, may use the API through us. The panel page is
+// web-accessible (the overlay frames it), so a web page could frame it too; such a frame has no overlay
+// content script behind it, so nobody answers the page-URL question below and the request is refused.
+async function trustedPageUrl(sender) {
+  if (sender.id !== browser.runtime.id || !sender.url?.startsWith(PANEL_URL) || !sender.tab || !sender.frameId) {
+    throw new ApiError('Thirstt can only be used from its toolbar button.');
+  }
+  let reply = null;
+  try {
+    reply = await browser.tabs.sendMessage(sender.tab.id, { type: 'thirstt:page-url' }, { frameId: 0 });
+  } catch { /* no overlay content script in that tab */ }
+  if (typeof reply?.url !== 'string') throw new ApiError('Thirstt can only be used from its toolbar button.');
+  return httpUrlWithoutFragment(reply.url);
+}
+
 browser.runtime.onMessage.addListener((message, sender) => {
-  // Only our own panel page may use the API through us.
   if (sender.id !== browser.runtime.id || !sender.url?.startsWith(PANEL_URL)) return undefined;
   return (async () => {
     try {
-      if (message?.type === 'thirstt:extract') return await fetchExtract(API_BASE, httpUrlWithoutFragment(message.url));
+      if (message?.type === 'thirstt:extract') {
+        return await fetchExtract(API_BASE, await trustedPageUrl(sender));       // any `url` in the message is ignored
+      }
       if (message?.type === 'thirstt:login') {
-        return { status: 'login', ok: await login(API_BASE, String(message.email ?? ''), String(message.password ?? '')) };
+        await trustedPageUrl(sender);
+        const { email, password } = message;
+        if (typeof email !== 'string' || typeof password !== 'string' || !email || !password ||
+            email.length > MAX_EMAIL || password.length > MAX_PASSWORD) {
+          return { status: 'error', message: 'Enter a valid e-mail and password.' };
+        }
+        return { status: 'login', ok: await login(API_BASE, email, password) };
       }
       return { status: 'error', message: 'Unknown request.' };
     } catch (error) {

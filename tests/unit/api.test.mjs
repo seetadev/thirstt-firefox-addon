@@ -63,3 +63,50 @@ test('login posts JSON to /login and nothing else leaks into the URL', async () 
   assert.equal(init.method, 'POST');
   assert.deepEqual(JSON.parse(init.body), { email: 'a@example.invalid', password: 'pw', isJson: 1 });
 });
+
+// ---- hardening ----------------------------------------------------------------------------------------
+
+import { assertSecureBase } from '../../extension/lib/api.js';
+
+test('the API base must be https; plain http is allowed only for loopback (the local test double)', async () => {
+  assert.equal(assertSecureBase('https://api.example.invalid').origin, 'https://api.example.invalid');
+  for (const ok of ['http://127.0.0.1:8790', 'http://localhost:1', 'http://[::1]:1']) assert.ok(assertSecureBase(ok), ok);
+  for (const bad of ['http://api.example.invalid', 'http://127.0.0.1.evil.invalid', 'ftp://api.example.invalid', 'javascript:1', 'not a url', '']) {
+    assert.throws(() => assertSecureBase(bad), ApiError, bad);
+  }
+  // and the request itself is never made to an insecure base
+  let called = false;
+  await assert.rejects(fetchExtract('http://api.example.invalid', 'x', { fetchImpl: async () => { called = true; return new Response('[]'); } }), ApiError);
+  assert.equal(called, false);
+  await assert.rejects(login('http://api.example.invalid', 'a', 'b', { fetchImpl: async () => { called = true; return new Response(''); } }), ApiError);
+  assert.equal(called, false);
+});
+
+test('an oversized response is refused: by Content-Length, and by counting bytes when the length is missing or a lie', async () => {
+  const big = 'x'.repeat(2 * 1024 * 1024 + 10);
+  const withLength = async () => new Response(big, { status: 200, headers: { 'content-length': String(big.length) } });
+  await assert.rejects(fetchExtract(BASE, 'x', { fetchImpl: withLength }), (e) => e instanceof ApiError && /too large/.test(e.message));
+  const streamed = async () => new Response(new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(big)); c.close(); } }), { status: 200 });
+  await assert.rejects(fetchExtract(BASE, 'x', { fetchImpl: streamed }), (e) => e instanceof ApiError && /too large/.test(e.message));
+  const lying = async () => new Response(big, { status: 200, headers: { 'content-length': '10' } });
+  await assert.rejects(fetchExtract(BASE, 'x', { fetchImpl: lying }), (e) => e instanceof ApiError && /too large/.test(e.message));
+});
+
+test('a reply that ended up on another origin (redirect) is never processed', async () => {
+  const withUrl = (url) => async () => {
+    const r = new Response(FIXTURE, { status: 200 });
+    Object.defineProperty(r, 'url', { value: url });
+    return r;
+  };
+  await assert.rejects(fetchExtract(BASE, 'x', { fetchImpl: withUrl('https://evil.invalid/steal') }), (e) => e instanceof ApiError && /unexpected/.test(e.message));
+  assert.equal((await fetchExtract(BASE, 'x', { fetchImpl: withUrl(`${BASE}/elsewhere`) })).status, 'ok');
+});
+
+test('titles are capped; non-string title/content are handled', async () => {
+  const body = JSON.stringify([{ title: 'T'.repeat(5000), content: '<p>x</p>' }]);
+  assert.equal((await fetchExtract(BASE, 'x', { fetchImpl: async () => new Response(body) })).title.length, 500);
+  const odd = JSON.stringify([{ title: { a: 1 }, content: ['<p>x</p>'] }]);
+  const r = await fetchExtract(BASE, 'x', { fetchImpl: async () => new Response(odd) });
+  assert.equal(r.title, '');
+  assert.equal(r.content, 'No content available for this webpage');
+});
