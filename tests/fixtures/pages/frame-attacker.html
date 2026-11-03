@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Frame attacker (test fixture)</title></head>
+<body>
+  <h1>A hostile page that embeds the add-on panel</h1>
+  <script>
+    // ?uuid=<extension uuid>&u=<url the attacker wants the add-on to fetch for them>
+    const q = new URLSearchParams(location.search);
+    const f = document.createElement('iframe');
+    f.id = 'victim-panel';
+    f.src = `moz-extension://${q.get('uuid')}/panel/panel.html?u=${encodeURIComponent(q.get('u') ?? '')}`;
+    f.width = 600; f.height = 400;
+    document.body.append(f);
+  </script>
+</body>
+</html>

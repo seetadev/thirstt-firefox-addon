@@ -1,9 +1,24 @@
 {
-  "name": "thirstt-addon",
-  "title": "thirstt-addon",
-  "id": "jid1-XahVBfTj5Fp3Sg",
-  "description": "a basic add-on",
-  "author": "",
-  "license": "MPL 2.0",
-  "version": "0.1"
+  "name": "thirstt-firefox-addon",
+  "private": true,
+  "version": "0.2.0",
+  "description": "Thirstt Firefox add-on (Manifest V3)",
+  "license": "MPL-2.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "lint": "web-ext lint -s extension",
+    "build": "web-ext build -s extension -a web-ext-artifacts --overwrite-dest",
+    "start": "web-ext run -s extension",
+    "build:test": "node tools/build.mjs",
+    "test:e2e": "node --test --test-concurrency=1 \"tests/e2e/*.test.mjs\"",
+    "test:unit": "node --test \"tests/unit/*.test.mjs\" tests/config.test.mjs",
+    "test": "npm run test:unit"
+  },
+  "devDependencies": {
+    "selenium-webdriver": "4.52.0",
+    "web-ext": "10.8.0",
+    "jsdom": "26.1.0"
+  }
 }
