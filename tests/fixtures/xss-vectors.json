@@ -1,0 +1,23 @@
+[
+ "script",
+ "img-onerror",
+ "svg-onload",
+ "iframe-srcdoc",
+ "iframe-js",
+ "js-link",
+ "js-link-spaced",
+ "data-link",
+ "form",
+ "style",
+ "body-onload",
+ "meta-refresh",
+ "base",
+ "object",
+ "math",
+ "template",
+ "noscript",
+ "event-attrs",
+ "details",
+ "link-css",
+ "good-link"
+]
