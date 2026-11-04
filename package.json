@@ -9,7 +9,7 @@
   },
   "scripts": {
     "lint": "web-ext lint -s extension",
-    "build": "web-ext build -s extension -a web-ext-artifacts --overwrite-dest",
+    "build": "web-ext build -s extension -a web-ext-artifacts --overwrite-dest --ignore-files lib/helia.js",
     "start": "web-ext run -s extension",
     "build:test": "node tools/build.mjs",
     "test:e2e": "node --test --test-concurrency=1 \"tests/e2e/*.test.mjs\"",

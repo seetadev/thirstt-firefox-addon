@@ -37,6 +37,7 @@ jobs:
         run: |
           unzip -Z1 web-ext-artifacts/*.zip | tee contents.txt
           ! grep -E '(^|/)(node_modules|tests|tools|package(-lock)?\.json|\.github)(/|$)' contents.txt
+          ! grep -i helia contents.txt   # scaffold, excluded until it is wired in (see HELIA_INTEGRATION.md)
           unzip -p web-ext-artifacts/*.zip manifest.json | node -e "const m=JSON.parse(require('fs').readFileSync(0,'utf8')); if(m.manifest_version!==3||m.name!=='Thirstt') process.exit(1)"
       - uses: actions/upload-artifact@v4
         with:

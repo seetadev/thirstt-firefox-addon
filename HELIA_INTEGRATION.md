@@ -1,6 +1,6 @@
 # Helia integration points (plan and scaffold)
 
-Status: **planning + scaffold only.** `extension/lib/helia.js` is a tested client; nothing in the add-on imports it (a test enforces that, and that the manifest and permissions are unchanged). Note that it still ships inside the zip as unused code until it is wired in.
+Status: **planning + scaffold only.** `extension/lib/helia.js` is a tested client; nothing in the add-on imports it (a test enforces that, and that the manifest and permissions are unchanged). It is **excluded from the built zip** (`--ignore-files lib/helia.js` in the `build` script; a test builds the zip and checks it is absent) so no unused code ships; when it is wired in, remove that flag and flip the test.
 
 The add-on never embeds Helia, **and it never talks to the Helia sidecar at all.** It talks to the Thirstt backend, which talks to the sidecar. This is the main design point of this document.
 
