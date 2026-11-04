@@ -4,7 +4,7 @@ Status: **planning + scaffold only.** `extension/lib/helia.js` is a tested clien
 
 The add-on never embeds Helia, **and it never talks to the Helia sidecar at all.** It talks to the Thirstt backend, which talks to the sidecar. This is the main design point of this document.
 
-## The sidecar contract (read from the source at commit `8afe218`, then confirmed by running it)
+## The sidecar contract (read from the source at commit `8afe218`, confirmed by running it, and re-verified at `a114973`)
 
 | Call | Behaviour |
 |---|---|
@@ -16,7 +16,7 @@ The add-on never embeds Helia, **and it never talks to the Helia sidecar at all.
 
 Verified against the real sidecar: a small payload gets the raw-leaf `CIDv1` equal to `sha2-256` computed locally; unknown CID -> 504 after 5.0 s; 413 over the limit; 400 for malformed CIDs; 401 without the token. Not in the sidecar: **delete**, per-user ownership, replication (offline mode).
 
-**Sidecar bug found while testing (`8afe218`):** `POST /upload` **without a `Content-Type` header** is answered `200` with the CID of an *empty* file and **nothing is stored**. The add-on client always sends `application/octet-stream`; a test pins that. (An integration test marked `todo` documents the bug and passes once it is fixed.)
+**Sidecar bug found while testing, now fixed (commit `8afe218` had it):** `POST /upload` **without a `Content-Type` header** was answered `200` with the CID of an *empty* file and **nothing was stored** (and the size limit was skipped). Fixed in [Tornado-Backend-Stack#15](https://github.com/seetadev/Tornado-Backend-Stack/pull/15) (`a114973`): a missing `Content-Type` is treated as `application/octet-stream` and an empty body is a `400`. The clients here always send `Content-Type: application/octet-stream` anyway, so they work against both. The integration test for it is `xfail` (`todo` in the add-on): it fails against an old sidecar without failing the run, and reports `XPASS` / passes against `a114973` (verified).
 
 **Dependency:** the sidecar exists only in the open PR [seetadev/Tornado-Backend-Stack#15](https://github.com/seetadev/Tornado-Backend-Stack/pull/15) (private repository).
 
@@ -93,7 +93,7 @@ The test puts a **stand-in for the Thirstt backend** (`tests/integration/thirstt
 
 ```bash
 git clone git@github.com:seetadev/Tornado-Backend-Stack.git ../Tornado-Backend-Stack
-git -C ../Tornado-Backend-Stack checkout 8afe218
+git -C ../Tornado-Backend-Stack checkout a114973
 export HELIA_SIDECAR_BUILD_CONTEXT=$PWD/../Tornado-Backend-Stack/meshkit-sidecar-helia
 export HELIA_SIDECAR_SECRET=$(openssl rand -hex 32)
 docker compose -f tests/integration/docker-compose.helia.yml up -d --build --wait

@@ -112,7 +112,7 @@ test('the add-on never sees or sends the sidecar secret', opts, async () => {
 });
 
 test('the sidecar itself: an upload with no Content-Type should not silently store nothing',
-  { ...opts, todo: 'upstream sidecar bug (Tornado-Backend-Stack#15, 8afe218): answered 200 with the EMPTY-file CID. The add-on client always sends application/octet-stream.' },
+  { ...opts, todo: 'upstream sidecar bug, fixed in Tornado-Backend-Stack#15 (a114973); fails against older sidecar builds (200 with the EMPTY-file CID). The add-on client always sends application/octet-stream.' },
   async () => {
     const r = await fetch(`${URL_}/upload`, { method: 'POST', body: new Uint8Array([104, 105]), headers: { 'X-Meshkit-Helia-Token': SECRET, 'Content-Type': '' } });
     const reply = r.status === 200 ? await r.json() : null;

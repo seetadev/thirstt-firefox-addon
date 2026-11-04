@@ -5,9 +5,10 @@
 #   docker compose -f tests/integration/docker-compose.helia.yml down -v
 # The sidecar lives in a PRIVATE repo and, today, only in the open PR seetadev/Tornado-Backend-Stack#15 (branch
 # migrate/07b-helia). Docker cannot clone it anonymously, so point HELIA_SIDECAR_BUILD_CONTEXT at a local checkout's
-# meshkit-sidecar-helia directory. This client was written and tested against commit 8afe218 (8afe2182fb78...).
+# meshkit-sidecar-helia directory. The client was written against 8afe218 and re-verified at a114973, which also fixes the
+# missing-Content-Type upload bug and pins the sidecar's dependencies (npm ci).
 #   git clone git@github.com:seetadev/Tornado-Backend-Stack.git ../Tornado-Backend-Stack
-#   git -C ../Tornado-Backend-Stack checkout 8afe218
+#   git -C ../Tornado-Backend-Stack checkout a114973
 #   export HELIA_SIDECAR_BUILD_CONTEXT=$PWD/../Tornado-Backend-Stack/meshkit-sidecar-helia
 services:
   helia:
