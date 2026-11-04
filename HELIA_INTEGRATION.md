@@ -80,12 +80,46 @@ Saving is never required for the add-on's core feature (reading the extract), so
 
 ## Open questions
 
-1. Will the Thirstt backend add the authenticated `/helia/*` endpoints (with ownership, quota, rate limiting, and a lower size cap), or should Tornado-Backend-Stack's `/meshkit-helia/*` proxy be hardened and used? Either way `/list` must not be reachable by users.
+1. Will the Thirstt backend add the authenticated `/helia/*` endpoints (with ownership, quota, rate limiting, and a lower size cap), or should Tornado-Backend-Stack's `/meshkit-helia/*` proxy be hardened and used? Either way `/list` must not be reachable by users. The design for ownership, a per-user list, quotas and token auth for non-browser clients is in "Follow-up" below.
 2. Which features first: saved articles, clips (needs a definition), sharing?
 3. Key custody for encryption: a random key kept in extension storage (new permission, lost with the profile), derived from a passphrase (user burden), or wrapped by the Thirstt account (the server could then read everything, so not end-to-end)?
 4. Deletion and privacy: users will expect to delete saved items and an account; the sidecar cannot. Is crypto-shredding acceptable?
 5. Data-collection declaration and the store listing text for the new data category.
 6. Offline mode only (one node, one volume, no replication) or online Helia?
+
+## Follow-up (not done): ownership, per-user list and quotas on the Tornado proxy
+
+Status: **designed, not implemented, and deliberately not part of the proxy-authentication change.** That change (login required on `/meshkit-helia/upload` and `/retrieve/<cid>`, `/list` closed, uploads must be `Content-Type: application/octet-stream`) only answers "who may call the proxy". It does not answer "whose data is it", which is what the add-on needs.
+
+**What authentication alone leaves open.** Any logged-in user can (1) read any CID they know or can guess, (2) upload up to the size cap as often as they like, filling the node's volume, and (3) cannot see their own items at all, because `/list` is closed. Client-side encryption (the add-on's plan) makes (1) harmless for private data; nothing but quotas stops (2).
+
+**Existing callers that this affects.** Two open PRs already call `/meshkit-helia/*` and assume it is open: ZKMedical-Billing #109 (five medical apps, one shared `tornado-provider.ts`) and socialcalc-ai #6 (`heliaAdapter.ts`). Neither logs in or sends credentials, both use `GET /list` (the medical apps for "Test connection" and the history list, socialcalc-ai for its "open" list), and both rely on client-side encryption instead of auth. A 401 is a generic HTTP error to them: the medical apps fall back to S3 only on 502/503/504/404, so they would stop saving. Whatever is built here must give them a per-user `/list` and a login path (see "Authentication for non-cookie clients").
+
+### 1. Ownership index (no new infrastructure)
+- The stack has no database (the S3-compatible storage behind `cloud.storage.storage` is the only persistence besides the sidecar). Record ownership there as one small marker object per upload, outside the sheet namespace, for example `["helia", <user>, <cid>]` holding `{size, createdAt}`.
+- `POST /upload`: after the sidecar returns the CID, write the marker, then answer. If the marker write fails, answer 503 and let the client retry (same bytes, same CID, so it is idempotent); an orphan blob is the worst case.
+- `GET /retrieve/<cid>`: 404 (not 403, so existence is not revealed) unless the caller has a marker for that CID. Identical bytes uploaded by two users share one CID but have separate markers, so each is authorised independently.
+- **`GET /list` returns again, but only the caller's own items** as `[{"cid", "size", "uploadedAt"}]`. That is exactly the shape the existing clients already parse, so they keep working unchanged. Page it (limit/cursor): listing a prefix is the expensive operation here.
+- Sharing is an explicit act, not a side effect of knowing a CID: either a `public` flag on the marker (anyone logged in may read) or a share token; to be decided with the product.
+- A `GET /meshkit-helia/health` for "Test connection" (the medical apps currently use `/list` for it), answering only `{"status":"ok"}` (never the peer id) and requiring the same auth.
+- Deleting removes the marker. The sidecar has **no delete**, so the bytes stay on the node; for private data the real "forget" is destroying the client-side key (crypto-shredding). A sidecar `DELETE /blocks/<cid>` (unpin + garbage collect) would be an upstream change and a prerequisite for actual reclamation.
+
+### 2. Quotas and rate limits
+- Per-user stored bytes (for example `HELIA_USER_QUOTA_MB`, default 100): a per-user usage counter object updated on upload/delete (approximate is fine; recompute from markers occasionally). Over quota: `413`/`507` with a clear message.
+- A per-upload cap below the sidecar's 20 MB for this proxy (`MESHKIT_HELIA_MAX_UPLOAD_MB` already exists and is enforced before the sidecar is called).
+- Request rate: an in-process limiter is per instance (the stack runs app1 and app2, so effective rates double); the dependable place is nginx `limit_req` keyed by client IP, with the per-user byte quota enforced in the app. Do not key on the cookie value: a caller can vary it.
+- Tornado reads a request body before any handler runs, so an anonymous caller can still make the app buffer up to nginx's `client_max_body_size` (50 MB) before the 401. Lowering that limit for `/meshkit-helia/` in nginx fixes it without code.
+
+### 3. Authentication for non-cookie clients (needed by the existing callers)
+A proposal, to be confirmed before anything is built:
+- `POST /api/token` (JSON `{email, password}`, verified exactly like `/api/login`) returns a **signed, expiring, scope-limited token** built with Tornado's `create_signed_value` under its own name (for example `helia-token`) and the existing cookie secret, so a token cannot be replayed as a web session or the other way round. Stateless, so no new storage; revocation is by expiry (30 days) or by a per-user "token epoch" in the ownership area if immediate revocation is needed.
+- Clients send `Authorization: Bearer <token>`; the proxy accepts either a valid session cookie or a valid token. With a header there is no ambient credential, so the CSRF content-type rule is not needed on that path (it stays for cookies). CORS must allow the `Authorization` header and answer preflights without it.
+- Apps keep the token in their own storage and send it on every call; on 401 they prompt for login. The add-on does the same from its background page.
+- This makes Tornado accounts a prerequisite for using Helia from those apps, which is a product decision (the medical apps have no account concept today).
+
+### 4. Operations
+- An audit line per upload/retrieve with user, CID and byte count, never content; an admin route that lists everything stays on the sidecar's internal address (not behind the public proxy).
+- Tests to write with it: ownership isolation between two users (including identical bytes), the per-user `/list` shape, quota exceeded, marker-write failure, token scope (a Helia token is refused on `/api/sheets` and a session cookie is not a Helia token), expiry, and an end-to-end run against the real sidecar.
 
 ## Running the opt-in integration test (real sidecar)
 
